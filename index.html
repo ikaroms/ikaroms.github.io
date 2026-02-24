@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Sistema Marcenaria Planejada</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{
+    font-family:Arial;
+    margin:0;
+    background:#f4f6f8;
+}
+header{
+    background:#2c3e50;
+    color:white;
+    padding:20px;
+    text-align:center;
+}
+.container{
+    padding:30px;
+    max-width:1000px;
+    margin:auto;
+}
+.card{
+    background:white;
+    padding:20px;
+    margin-bottom:20px;
+    border-radius:8px;
+    box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+input,select{
+    width:100%;
+    padding:10px;
+    margin:6px 0;
+}
+button{
+    padding:12px;
+    background:#f39c12;
+    border:none;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+}
+button:hover{background:#d68910;}
+.table{
+    width:100%;
+    border-collapse:collapse;
+}
+.table th,.table td{
+    border:1px solid #ddd;
+    padding:8px;
+}
+.hidden{display:none;}
+.badge{
+    padding:4px 8px;
+    border-radius:12px;
+    color:white;
+    font-size:12px;
+}
+.novo{background:#3498db;}
+</style>
+</head>
+<body>
+
+<header>
+<h1>Sistema Web - Marcenaria Planejada</h1>
+</header>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div id="loginCard" class="card">
+<h2>Login Admin</h2>
+<input id="user" placeholder="Usuário">
+<input id="pass" type="password" placeholder="Senha">
+<button onclick="login()">Entrar</button>
+<p><b>Padrão:</b> admin / 1234</p>
+</div>
+
+<!-- SIMULADOR -->
+<div class="card">
+<h2>Simulador de Orçamento</h2>
+
+<input id="nome" placeholder="Nome do cliente">
+<input id="telefone" placeholder="Telefone">
+
+<select id="ambiente">
+<option>Cozinha</option>
+<option>Quarto</option>
+<option>Closet</option>
+<option>Escritório</option>
+</select>
+
+<input id="metros" type="number" placeholder="Metros quadrados">
+
+<select id="material">
+<option value="900">MDF</option>
+<option value="700">MDP</option>
+<option value="1200">Naval</option>
+</select>
+
+<label>
+<input type="checkbox" id="premium"> Ferragens Premium (+25%)
+</label>
+
+<button onclick="calcular()">Calcular</button>
+
+<div id="resultado"></div>
+
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="hidden card">
+<h2>Painel Admin - Leads</h2>
+<table class="table">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nome</th>
+<th>Ambiente</th>
+<th>Valor</th>
+<th>PDF</th>
+</tr>
+</thead>
+<tbody id="leadsTable"></tbody>
+</table>
+</div>
+
+</div>
+
+<script>
+
+let leads = JSON.parse(localStorage.getItem("leads")) || [];
+
+function salvarDB(){
+    localStorage.setItem("leads", JSON.stringify(leads));
+}
+
+function calcular(){
+    let nome = document.getElementById("nome").value;
+    let telefone = document.getElementById("telefone").value;
+    let ambiente = document.getElementById("ambiente").value;
+    let metros = parseFloat(document.getElementById("metros").value);
+    let base = parseFloat(document.getElementById("material").value);
+    let premium = document.getElementById("premium").checked;
+
+    if(!metros || metros <=0){
+        alert("Informe os metros corretamente");
+        return;
+    }
+
+    let valor = base * metros;
+    if(premium) valor *= 1.25;
+
+    let faixaMin = valor * 0.9;
+    let faixaMax = valor * 1.1;
+
+    document.getElementById("resultado").innerHTML =
+    `<p><b>Faixa estimada:</b> R$ ${faixaMin.toFixed(2)} - R$ ${faixaMax.toFixed(2)}</p>
+     <p><b>Prazo médio:</b> 25-35 dias</p>`;
+
+    let novoLead = {
+        id: leads.length + 1,
+        nome,
+        telefone,
+        ambiente,
+        valor: valor.toFixed(2)
+    };
+
+    leads.push(novoLead);
+    salvarDB();
+    carregarLeads();
+}
+
+function login(){
+    let u = document.getElementById("user").value;
+    let p = document.getElementById("pass").value;
+
+    if(u === "admin" && p === "1234"){
+        document.getElementById("adminPanel").classList.remove("hidden");
+        alert("Login realizado!");
+    } else {
+        alert("Usuário ou senha inválidos");
+    }
+}
+
+function carregarLeads(){
+    let tabela = document.getElementById("leadsTable");
+    tabela.innerHTML = "";
+
+    leads.forEach(l => {
+        tabela.innerHTML += `
+        <tr>
+        <td>${l.id}</td>
+        <td>${l.nome}</td>
+        <td>${l.ambiente}</td>
+        <td>R$ ${l.valor}</td>
+        <td><button onclick="gerarPDF(${l.id})">PDF</button></td>
+        </tr>
+        `;
+    });
+}
+
+function gerarPDF(id){
+    const { jsPDF } = window.jspdf;
+    let lead = leads.find(l => l.id === id);
+
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Orçamento - Marcenaria Planejada", 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Cliente: ${lead.nome}`, 20, 40);
+    doc.text(`Ambiente: ${lead.ambiente}`, 20, 50);
+    doc.text(`Valor estimado: R$ ${lead.valor}`, 20, 60);
+    doc.text("Prazo médio: 25-35 dias", 20, 70);
+
+    doc.save("orcamento_"+lead.id+".pdf");
+}
+
+carregarLeads();
+
+</script>
+
+</body>
+</html>
